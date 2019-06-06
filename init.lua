@@ -7,6 +7,17 @@ storms = {
 }
 
 
+local sounds = {
+	thunder = {
+		"thunder_01_ccby_hantorio.ogg",
+		"thunder_02_PD.ogg",
+		"thunder_03_PD.ogg",
+	},
+}
+
+
+
+
 storms.register_on_lightning_strike = function(fn) 
 	table.insert(on_strike, fn)
 end
@@ -116,6 +127,12 @@ local function do_lightning(cloudh, pos)
 		
 		p.y = p.y - 1
 	end
+	
+	minetest.sound_play(sounds.thunder[math.random(#sounds.thunder)], {
+		pos = p,
+		max_hear_distance = 100,
+		gain = 10.0,
+	})
 	
 end
 
