@@ -1,6 +1,15 @@
 
 
-storms = {}
+local on_strike = {}
+
+
+storms = {
+}
+
+
+storms.register_on_lightning_strike = function(fn) 
+	table.insert(on_strike, fn)
+end
 
 
 local on = false
@@ -34,6 +43,9 @@ local function randompos(center, dist)
 	}
 end
 
+local function pcopy(p)
+	return {x=p.x, y=p.y, z=p.z}
+end
 
 local function do_lightning(cloudh, pos)
 	
@@ -54,6 +66,29 @@ local function do_lightning(cloudh, pos)
 	
 		h = h - 30
 	end
+	
+	local p = {x=pos.x, y=cloudh, z=pos.z}
+	while p.y >= -1 do
+		local n = minetest.get_node(p)
+		if n.name ~= "air" and n.name ~= "ignore" then
+		
+			-- node callbacks
+			local def = minetest.registered_nodes[n.name]
+			if def.on_lightning_strike then
+				def.on_lightning_strike(pcopy(p))
+			end
+			
+			-- global callbacks
+			for _,fn in pairs(on_strike) do
+				fn(pcopy(p), n)
+			end
+			
+			break
+		end
+		
+		p.y = p.y - 1
+	end
+	
 end
 
 
@@ -76,7 +111,7 @@ minetest.register_craftitem("storms:rainstick", {
 		else
 			on = true
 			
-			function spawn_clouds()
+			local function spawn_clouds()
 				local pos = player:get_pos()
 				pos.y = pos.y + 55
 				
@@ -85,6 +120,7 @@ minetest.register_craftitem("storms:rainstick", {
 				
 				local vel = {x=5, y = 0, z=1}
 				
+				-- clouds
 				minetest.add_particlespawner({
 					amount = 5000,
 					time = 5,
@@ -101,29 +137,30 @@ minetest.register_craftitem("storms:rainstick", {
 					texture = "storms_cloud.png^[colorize:black:120",
 				})
 				
+				-- rain
+				minetest.add_particlespawner({
+					amount = 1000,
+					time = 5,
+					minpos = {x=pos.x-20, y=pos.y, z=pos.z-20},
+					maxpos = {x=pos.x+20, y=pos.y+ht, z=pos.z+20},
+					minvel = {x=0, y=-40, z=0},
+					maxvel = {x=0, y=-40,  z=0},
+					minacc = {x=-0.1, y=0.1, z=-0.1},
+					maxacc = {x=0.1, y=0.3, z=0.1},
+					collisiondetection = true,
+					collision_removal = true,
+					minexptime = 2,
+					maxexptime = 7,
+					minsize = 10,
+					maxsize = 15,
+					texture = "storms_raindrop.png",
+				})
+				
 				for i = 1,math.random(18) do
 					minetest.after(math.random(5), function()
 						do_lightning(pos.y, randompos(pos, 40))
 					end)
 				end
-				
-				--[[
-				minetest.add_particlespawner({
-					amount = 350,
-					time = 15,
-					minpos = {x=pos.x-sz, y=pos.y, z=pos.z-sz},
-					maxpos = {x=pos.x+sz, y=pos.y+ht, z=pos.z+sz},
-					minvel = {x=0, y=-89, z=0},
-					maxvel = {x=5, y=-89, z=0},
-					minacc = {x=0, y=0, z=0},
-					maxacc = {x=0, y=0, z=0},
-					minexptime = 2,
-					maxexptime = 2,
-					minsize = 100,
-					maxsize = 100,
-					texture = "biometest_rain.png^[colorize:red:0",
-				})
-				]]
 				
 				if on then
 					minetest.after(5, function() 
@@ -143,3 +180,8 @@ minetest.register_craftitem("storms:rainstick", {
 })
 
 
+storms.register_on_lightning_strike(function(pos) 
+	pos.y = pos.y + 1
+	minetest.set_node(pos, {name="fire:basic_flame"})
+	
+end)
