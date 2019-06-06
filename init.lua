@@ -1,5 +1,8 @@
 
 
+storms = {}
+
+
 local on = false
 
 local sky_defaults = nil
@@ -20,6 +23,37 @@ end)
 
 local function get_noise(pos) 
 	return heat_noise:get2dMap(pos), humidity_noise:get2dMap(pos)
+end
+
+
+local function randompos(center, dist)
+	return {
+		x = center.x + math.random(-dist, dist),
+		y = center.y,
+		z = center.z + math.random(-dist, dist),
+	}
+end
+
+
+local function do_lightning(cloudh, pos)
+	
+	local h = cloudh - 10
+	
+	while h > -16 do
+		minetest.add_particle({
+			pos = {x=pos.x, y=h, z=pos.z},
+			velocity = {x=0, y=0, z=0},
+			acceleration = {x=0, y=0, z=0},
+			expirationtime = .1,
+			size = 300,
+			collisiondetection = false,
+			vertical = true,
+			texture = "storms_lightning.png",
+			playername = "singleplayer"
+		})
+	
+		h = h - 30
+	end
 end
 
 
@@ -60,12 +94,18 @@ minetest.register_craftitem("storms:rainstick", {
 					maxvel = vector.add(vel, {x=5,  y=0.5,  z=5}),
 					minacc = {x=-0.1, y=0.1, z=-0.1},
 					maxacc = {x=0.1, y=0.3, z=0.1},
-					minexptime = 5,
-					maxexptime = 10,
+					minexptime = 2,
+					maxexptime = 7,
 					minsize = 300,
 					maxsize = 400,
 					texture = "storms_cloud.png^[colorize:black:120",
 				})
+				
+				for i = 1,math.random(18) do
+					minetest.after(math.random(5), function()
+						do_lightning(pos.y, randompos(pos, 40))
+					end)
+				end
 				
 				--[[
 				minetest.add_particlespawner({
@@ -86,7 +126,7 @@ minetest.register_craftitem("storms:rainstick", {
 				]]
 				
 				if on then
-					minetest.after(10, function() 
+					minetest.after(5, function() 
 						spawn_clouds()
 					end)
 				end
