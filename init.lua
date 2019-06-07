@@ -9,9 +9,10 @@ storms = {
 
 local sounds = {
 	thunder = {
-		"thunder_01_ccby_hantorio.ogg",
-		"thunder_02_PD.ogg",
-		"thunder_03_PD.ogg",
+		"storms_thunder_01_ccby_hantorio",
+		"storms_thunder_01_ccby_hantorio",
+--		"storms_thunder_02_PD",
+		"storms_thunder_03_PD",
 	},
 }
 
@@ -131,7 +132,7 @@ local function do_lightning(cloudh, pos)
 	minetest.sound_play(sounds.thunder[math.random(#sounds.thunder)], {
 		pos = p,
 		max_hear_distance = 100,
-		gain = 10.0,
+		gain = 5.0,
 	})
 	
 end
