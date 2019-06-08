@@ -7,6 +7,10 @@ storms = {
 }
 
 
+
+local perlins = {}
+
+
 local sounds = {
 	thunder = {
 		"storms_thunder_01_ccby_hantorio",
@@ -18,6 +22,17 @@ local sounds = {
 
 
 
+local function color_lerp(a, b, x)
+	local x1 = 1.0 - x
+	
+	return {
+		r = a.r * x1 + b.r * x,
+		g = a.g * x1 + b.g * x,
+		b = a.b * x1 + b.b * x,
+-- 		a = a.a * x1 + b.a * x,
+	}
+end
+
 
 storms.register_on_lightning_strike = function(fn) 
 	table.insert(on_strike, fn)
@@ -25,7 +40,6 @@ end
 
 
 local on = false
-local sky_defaults = nil
 local storm_players = {}
 
 
@@ -34,6 +48,10 @@ for _,def in pairs(minetest.registered_biomes) do
 	if def.y_max >= 10 and def.y_min <= 10 then
 		table.insert(good_biomes, def)
 	end
+end
+
+local function get_noise(pos) 
+	return heat_noise:get2d({x=pos.x, y=pos.z}), humidity_noise:get2d({x=pos.x, y=pos.z})
 end
 
 
@@ -53,7 +71,17 @@ local function find_biome(he, hu)
 	
 	return tmp.name
 end
+
+local function get_biome(pos)
+	local he, hu = get_noise(pos)
+	if storms.biome_offset then
+		local oe, ou = storms.biome_offset(pos)
+		he = he + oe
+		hu = hu + ou
+	end
 	
+	return find_biome(he, hu)
+end
 
 
 minetest.after(0, function()
@@ -65,14 +93,7 @@ minetest.after(0, function()
 end)
 
 
-local function get_noise(pos) 
-	return heat_noise:get2d({x=pos.x, y=pos.z}), humidity_noise:get2d({x=pos.x, y=pos.z})
-end
 
-local function get_biome(pos)
-	local he, hu = get_noise(pos)
-	return find_biome(he, hu)
-end
 
 
 local function randompos(center, dist)
@@ -162,11 +183,11 @@ local function spawn_blizzard(pos, vel, sz)
 	})
 end
 
-local function spawn_sandstorm(pos, vel, sz)
+local function spawn_sandstorm(pos, vel, sz, lvl)
 	local ht = 7
 
 	minetest.add_particlespawner({
-		amount = 5000,
+		amount = lvl * 5000,
 		time = 5,
 		minpos = vector.add({x=pos.x-sz, y=pos.y-ht, z=pos.z-sz}, vector.multiply(vel, -.95)),
 		maxpos = vector.add({x=pos.x+sz, y=pos.y+ht, z=pos.z+sz}, vector.multiply(vel, -.95)),
@@ -185,12 +206,12 @@ local function spawn_sandstorm(pos, vel, sz)
 end
 
 
-local function spawn_rainclouds(pos, vel, sz)
+local function spawn_rainclouds(pos, vel, sz, lvl)
 	local offht = 60
 	local ht = 10
 
 	minetest.add_particlespawner({
-		amount = 5000,
+		amount = lvl * 5000,
 		time = 5,
 		minpos = {x=pos.x-sz, y=pos.y+offht, z=pos.z-sz},
 		maxpos = {x=pos.x+sz, y=pos.y+offht+ht, z=pos.z+sz},
@@ -206,12 +227,12 @@ local function spawn_rainclouds(pos, vel, sz)
 	})
 end
 
-local function spawn_rain(pos, vel, sz)
+local function spawn_rain(pos, vel, sz, lvl)
 	local offht = 10
 	local ht = 10
 	
 	minetest.add_particlespawner({
-		amount = 1000,
+		amount = lvl * 1000,
 		time = 5,
 		minpos = {x=pos.x-sz, y=pos.y+offht, z=pos.z-sz},
 		maxpos = {x=pos.x+sz, y=pos.y+offht+ht, z=pos.z+sz},
@@ -260,65 +281,83 @@ local biome_skies = {
 local biome_spawners = {}
 
 
-biome_spawners.tundra = function(pos)
-	spawn_blizzard(pos, {x= 10, y=0, z=10}, 15)
+biome_spawners.tundra = function(pos, dir, lvl)
+	spawn_blizzard(pos, dir, 15, lvl)
 end
 
-biome_spawners.taiga = function(pos)
-	spawn_blizzard(pos, {x= 10, y=0, z=10}, 15)
+biome_spawners.taiga = function(pos, dir, lvl)
+	spawn_blizzard(pos, dir, 15, lvl)
 end
 
-biome_spawners.grassland = function(pos)
-	spawn_rainclouds(pos, {x= 10, y=0, z=10}, 200)
-	spawn_rain(pos, {x=0, y=0, z=0}, 20)
-	spawn_lightning(pos, 10, 50)
+biome_spawners.grassland = function(pos, dir, lvl)
+	spawn_rainclouds(pos, dir, 20, lvl)
+	spawn_rain(pos, {x=0, y=0, z=0}, 20, lvl)
+	spawn_lightning(pos, 15 * lvl, 60)
 end
 
-biome_spawners.snowy_grassland = function(pos)
-	spawn_blizzard(pos, {x= 10, y=0, z=10}, 15)
+biome_spawners.snowy_grassland = function(pos, dir, lvl)
+	spawn_blizzard(pos, dir, 15, lvl)
 end
 
-biome_spawners.savanna = function(pos)
-	spawn_rainclouds(pos, {x= 10, y=0, z=10}, 200)
+biome_spawners.savanna = function(pos, dir, lvl)
+	spawn_rainclouds(pos, dir, 20, lvl)
 -- 	spawn_rain(pos, {x=0, y=0, z=0}, 10)
-	spawn_lightning(pos, 30, 50)
+	spawn_lightning(pos, 30 * lvl, 70)
 end
 
-biome_spawners.deciduous_forest = function(pos)
-	spawn_rainclouds(pos, {x= 10, y=0, z=10}, 200)
-	spawn_rain(pos, {x=0, y=0, z=0}, 20)
+biome_spawners.deciduous_forest = function(pos, dir, lvl)
+	spawn_rainclouds(pos, dir, 20, lvl)
+	spawn_rain(pos, {x=0, y=0, z=0}, 20, lvl)
 end
 
-biome_spawners.rainforest = function(pos)
-	spawn_rainclouds(pos, {x= 10, y=0, z=10}, 200)
-	spawn_rain(pos, {x=0, y=0, z=0}, 20)
+biome_spawners.rainforest = function(pos, dir, lvl)
+	spawn_rainclouds(pos, dir, 200, lvl)
+	spawn_rain(pos, {x=0, y=0, z=0}, 20, lvl)
 end
 
-biome_spawners.coniferous_forest = function(pos)
-	spawn_rainclouds(pos, {x= 10, y=0, z=10}, 200)
-	spawn_rain(pos, {x=0, y=0, z=0}, 20)
+biome_spawners.coniferous_forest = function(pos, dir, lvl)
+	spawn_rainclouds(pos, dir, 200, lvl)
+	spawn_rain(pos, {x=0, y=0, z=0}, 20, lvl)
 end
 
-biome_spawners.cold_desert = function(pos)
-	spawn_blizzard(pos, {x= 10, y=0, z=10}, 15)
+biome_spawners.cold_desert = function(pos, dir, lvl)
+	spawn_blizzard(pos, dir, 15, lvl)
 end
 
-biome_spawners.desert = function(pos)
-	spawn_sandstorm(pos, {x= 10, y=0, z=10}, 15)
+biome_spawners.desert = function(pos, dir, lvl)
+	spawn_sandstorm(pos, dir, 15, lvl)
 end
 
-biome_spawners.sandstone_desert = function(pos)
-	spawn_sandstorm(pos, {x= 10, y=0, z=10}, 15)
+biome_spawners.sandstone_desert = function(pos, dir, lvl)
+	spawn_sandstorm(pos, dir, 15, lvl)
 end
 
 
-local function set_biome_storm_sky(player, biome)
-	local sky = biome_skies[biome]
-	if not sky then
-		print("missing biome: ".. biome)
+local function set_biome_storm_sky(pinfo, b1, b2, n_biome, n_normal)
+	local sky1 = biome_skies[b1]
+	local sky2 = biome_skies[b2]
+	if not sky1 then
+		print("missing biome: ".. b1)
 		return
 	end
-	player:set_sky(sky.color, sky.type or "plain", sky.textures, sky.clouds or false)
+	if not sky2 then
+		print("missing biome: ".. b2)
+		return
+	end
+	
+	local color = color_lerp(sky1.color, sky2.color, n_biome)
+	color = color_lerp(color, pinfo.default_sky.color, n_normal)
+	
+	local sky
+	if n_normal > .75 then
+		sky = pinfo.default_sky
+	elseif n_biome > .5 then
+		sky = sky2
+	else
+		sky = sky1
+	end
+	
+	pinfo.player:set_sky(color, sky.type or "plain", sky.tex, sky.clouds or false)
 end
 
 
@@ -359,7 +398,7 @@ minetest.register_craftitem("storms:rainstick", {
 				end
 				fn(pos)
 				
-				set_biome_storm_sky(player, biome)
+-- 				set_biome_storm_sky(player, biome)
 				
 				if on then
 					minetest.after(5, function() 
@@ -384,3 +423,172 @@ storms.register_on_lightning_strike(function(pos)
 	minetest.set_node(pos, {name="fire:basic_flame"})
 	
 end)
+
+
+local function get_player_sky(player)
+	local sky = {}
+	sky.color, sky.type, sky.tex, sky.clouds = player:get_sky()
+	return sky
+end
+
+
+
+
+minetest.register_on_joinplayer(function(player)
+	local name = player:get_player_name()
+	storm_players[name] = {
+		a = nil,
+		b = nil,
+		fill = 1,
+		player = player,
+		default_sky = get_player_sky(player),
+	}
+	
+	print(dump(storm_players[name].default_sky))
+end)
+
+minetest.register_on_leaveplayer(function(player)
+	local name = player:get_player_name()
+	storm_players[name] = nil
+end)
+
+
+local function activate_storm(player ) 
+	local pos = player:get_pos()
+	local biome = get_biome(pos)
+	
+	
+	local fn = biome_spawners[biome]
+	
+	if not fn then
+		print("missing spawner biome: "..biome)
+	end
+	fn(pos)
+	
+-- 	set_biome_storm_sky(player, biome)
+	
+end
+
+local function clamp(min, max, n) 
+	if n < min then return min end
+	if n > max then return max end
+	return n
+end
+
+local function storm_loop()
+	local time = minetest.get_gametime()
+	
+	for name,pinfo in pairs(storm_players) do
+		local pos = pinfo.player:get_pos()
+		
+		local t = math.sin(time / (5 * 2 * math.pi))
+		local t2 = math.cos(time  / (7 * 2 * math.pi))
+
+		
+		local p1 = {
+			x = ((t * 20 + t2 * 30 + pos.x + time) % 65536) - 32768,
+			y = 0,
+			z = ((t * 20 + t2 * 30 + pos.z + time) % 65536) - 32768,
+		}
+		
+		local dx = perlins.dx:get2dMap_flat(p1)[1]
+		local dz = perlins.dz:get2dMap_flat(p1)[1]
+		
+		local tscale = .1
+		
+		local t3 = time % 32768
+		local t4 = time % 32768
+		
+		local p2 = {
+			x = ((t3 * (dx/10) + pos.x ) % 65536) - 32768,
+			y = 0,
+			z = ((t4 * (dx/10) + pos.z) % 65536) - 32768,
+		}
+		
+		local f1 = perlins.freq1:get2dMap_flat(p1)[1]
+		local f2 = perlins.freq2:get2dMap_flat(p1)[1]
+		
+		print("p2: "..p2.x..", ".. p2.z)
+		print("perlin: ".. dx.. ", "..dz.. ", "..f1.. ", "..f2)
+		
+		local f = (f1 + f2) - .5
+		
+		local biome = get_biome(pos)
+		
+		print("storm intensity: ".. f .. " ("..f1..", "..f2..")")
+		if f > 0 then
+			
+			local dir = {x = dx, y = 0, z = dz}
+			
+			
+			
+			local fn = biome_spawners[biome]
+			
+			if not fn then
+				print("missing spawner biome: "..biome)
+			end
+			fn(pos, dir, 1, f)
+			
+		end
+		
+		
+		
+		
+		set_biome_storm_sky(pinfo, biome, biome, 1, clamp(0, 1, 1-f))
+	end
+	
+	
+	minetest.after(5, storm_loop)
+end
+
+
+minetest.after(2, function()
+	
+	perlins.dx = minetest.get_perlin_map({
+		flags = {eased = false}, 
+		lacunarity = 4,
+		octaves = 4, 
+		offset = 0, 
+		persistence = 0.65, 
+		seed = 35363,
+		scale = 10, 
+		spread = {x=1000, y=1000, z=1000}
+	}, {x=1,y=1,z=1})
+	
+	perlins.dz = minetest.get_perlin_map({
+		flags = {eased = false}, 
+		lacunarity = 4,
+		octaves = 4, 
+		offset = 0, 
+		persistence = 0.65, 
+		seed = 678786,
+		scale = 10, 
+		spread = {x=1000, y=1000, z=1000}
+	}, {x=1,y=1,z=1})
+	
+	perlins.freq1 = minetest.get_perlin_map({
+		flags = {eased = false}, 
+		lacunarity = 2,
+		octaves = 3, 
+		offset = 0, 
+		persistence = 0.25,
+		seed = 79932,
+		scale = 1, 
+		spread = {x=2000, y=2000, z=2000}
+	}, {x=1,y=1,z=1})
+	
+	perlins.freq2 = minetest.get_perlin_map({
+		flags = {eased = false}, 
+		lacunarity = 2,
+		octaves = 1, 
+		offset = 0, 
+		persistence = 0.25, 
+		seed = 6445,
+		scale = 1, 
+		spread = {x=2000, y=2000, z=2000}
+	}, {x=1,y=1,z=1})
+	
+	
+	storm_loop()
+end)
+
