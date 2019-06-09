@@ -69,7 +69,7 @@ end
 
 local function get_intens_bias(pos, orig_intens, player)
 	local bias = 0
-	for fn in ipairs(fns.intens_bias) do
+	for _,fn in ipairs(fns.intens_bias) do
 		bias = bias + fn(pos, orig_intens, player)
 	end
 	return bias
@@ -77,7 +77,7 @@ end
 
 local function get_freq_bias(pos, orig_freq, player)
 	local bias = 0
-	for fn in ipairs(fns.freq_bias) do
+	for _,fn in ipairs(fns.freq_bias) do
 		bias = bias + fn(pos, orig_freq, player)
 	end
 	return bias
@@ -85,7 +85,7 @@ end
 
 local function get_heat_bias(pos, orig)
 	local bias = 0
-	for fn in ipairs(fns.heat_bias) do
+	for _,fn in ipairs(fns.heat_bias) do
 		bias = bias + fn(pos, orig)
 	end
 	return bias
@@ -93,7 +93,7 @@ end
 
 local function get_humidity_bias(pos, orig)
 	local bias = 0
-	for fn in ipairs(fns.humidity_bias) do
+	for _,fn in ipairs(fns.humidity_bias) do
 		bias = bias + fn(pos, orig)
 	end
 	return bias
