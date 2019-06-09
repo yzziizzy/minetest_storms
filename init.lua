@@ -250,6 +250,29 @@ local function spawn_rain(pos, vel, sz, lvl)
 	})
 end
 
+local function spawn_snow(pos, vel, sz, lvl)
+	local offht = 10
+	local ht = 10
+	
+	minetest.add_particlespawner({
+		amount = lvl * 1000,
+		time = 5,
+		minpos = {x=pos.x-sz, y=pos.y+offht, z=pos.z-sz},
+		maxpos = {x=pos.x+sz, y=pos.y+offht+ht, z=pos.z+sz},
+		minvel = {x=vel.x, y=-20, z=vel.z},
+		maxvel = {x=vel.x, y=-20, z=vel.z},
+		minacc = {x=-0.1, y=0.1, z=-0.1},
+		maxacc = {x=0.1, y=0.3, z=0.1},
+		collisiondetection = true,
+		collision_removal = true,
+		minexptime = 2,
+		maxexptime = 7,
+		minsize = 10,
+		maxsize = 15,
+		texture = "storms_snowflake.png",
+	})
+end
+
 
 local function spawn_lightning(pos, amount, sz)
 	local offht = 60
@@ -286,7 +309,7 @@ biome_spawners.tundra = function(pos, dir, lvl)
 end
 
 biome_spawners.taiga = function(pos, dir, lvl)
-	spawn_blizzard(pos, dir, 15, lvl)
+	spawn_snow(pos, {x=0, y=0, z=0}, 20, lvl)
 end
 
 biome_spawners.grassland = function(pos, dir, lvl)
@@ -396,7 +419,7 @@ minetest.register_craftitem("storms:rainstick", {
 				if not fn then
 					print("missing spawner biome: "..biome)
 				end
-				fn(pos)
+				fn(pos, {x=20, y=0, x=10}, 1)
 				
 -- 				set_biome_storm_sky(player, biome)
 				
