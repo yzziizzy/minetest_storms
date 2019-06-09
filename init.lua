@@ -1,6 +1,17 @@
 
 
-local on_strike = {}
+
+local FREQ_BIAS = -.6
+local FREQ_SCALE = 3
+local SPEED = .02
+
+local fns = {
+	on_strike = {},
+	freq_bias = {},
+	intens_bias = {},
+	heat_bias = {},
+	humidity_bias = {},
+}
 
 
 storms = {
@@ -35,9 +46,58 @@ end
 
 
 storms.register_on_lightning_strike = function(fn) 
-	table.insert(on_strike, fn)
+	table.insert(fns.on_strike, fn)
 end
 
+
+storms.register_freq_bias = function(fn) 
+	table.insert(fns.freq_bias, fn)
+end
+
+storms.register_intensity_bias = function(fn) 
+	table.insert(fns.intens_bias, fn)
+end
+
+storms.register_heat_bias = function(fn) 
+	table.insert(fns.heat_bias, fn)
+end
+
+storms.register_humidity_bias = function(fn) 
+	table.insert(fns.humidty_bias, fn)
+end
+
+
+local function get_intens_bias(pos, orig_intens, player)
+	local bias = 0
+	for fn in ipairs(fns.intens_bias) do
+		bias = bias + fn(pos, orig_intens, player)
+	end
+	return bias
+end
+
+local function get_freq_bias(pos, orig_freq, player)
+	local bias = 0
+	for fn in ipairs(fns.freq_bias) do
+		bias = bias + fn(pos, orig_freq, player)
+	end
+	return bias
+end
+
+local function get_heat_bias(pos, orig)
+	local bias = 0
+	for fn in ipairs(fns.heat_bias) do
+		bias = bias + fn(pos, orig)
+	end
+	return bias
+end
+
+local function get_humidity_bias(pos, orig)
+	local bias = 0
+	for fn in ipairs(fns.humidity_bias) do
+		bias = bias + fn(pos, orig)
+	end
+	return bias
+end
 
 local on = false
 local storm_players = {}
@@ -74,11 +134,8 @@ end
 
 local function get_biome(pos)
 	local he, hu = get_noise(pos)
-	if storms.biome_offset then
-		local oe, ou = storms.biome_offset(pos)
-		he = he + oe
-		hu = hu + ou
-	end
+	he = he + get_heat_bias(pos, he)
+	hu = hu + get_humidity_bias(pos, hu)
 	
 	return find_biome(he, hu)
 end
@@ -140,7 +197,7 @@ local function do_lightning(cloudh, pos)
 			end
 			
 			-- global callbacks
-			for _,fn in pairs(on_strike) do
+			for _,fn in pairs(fns.on_strike) do
 				fn(pcopy(p), n)
 			end
 			
@@ -313,7 +370,7 @@ biome_spawners.taiga = function(pos, dir, lvl)
 end
 
 biome_spawners.grassland = function(pos, dir, lvl)
-	spawn_rainclouds(pos, dir, 20, lvl)
+	spawn_rainclouds(pos, dir, 200, lvl)
 	spawn_rain(pos, {x=0, y=0, z=0}, 20, lvl)
 	spawn_lightning(pos, 15 * lvl, 60)
 end
@@ -323,13 +380,13 @@ biome_spawners.snowy_grassland = function(pos, dir, lvl)
 end
 
 biome_spawners.savanna = function(pos, dir, lvl)
-	spawn_rainclouds(pos, dir, 20, lvl)
+	spawn_rainclouds(pos, dir, 200, lvl)
 -- 	spawn_rain(pos, {x=0, y=0, z=0}, 10)
 	spawn_lightning(pos, 30 * lvl, 70)
 end
 
 biome_spawners.deciduous_forest = function(pos, dir, lvl)
-	spawn_rainclouds(pos, dir, 20, lvl)
+	spawn_rainclouds(pos, dir, 200, lvl)
 	spawn_rain(pos, {x=0, y=0, z=0}, 20, lvl)
 end
 
@@ -488,8 +545,6 @@ local function activate_storm(player )
 	end
 	fn(pos)
 	
--- 	set_biome_storm_sky(player, biome)
-	
 end
 
 local function clamp(min, max, n) 
@@ -517,47 +572,39 @@ local function storm_loop()
 		local dx = perlins.dx:get2dMap_flat(p1)[1]
 		local dz = perlins.dz:get2dMap_flat(p1)[1]
 		
-		local tscale = .1
 		
-		local t3 = time % 32768
-		local t4 = time % 32768
+-- 		for i = 1,2000,3 do
+-- 		local f3 = perlins.freq3:get3dMap_flat({x=pos.x, y=pos.z, z=i --[[(time *20) % 2000]]})[1]
+-- 		f3 = (f3 * 4) - 1.6
+-- 		print("perlin: ".. dump(f3))
+-- 		end
+		local f3 = perlins.freq3:get3dMap_flat({x=pos.x, y=pos.z, z=(time * SPEED) % 65536})[1]
+		f3 = (f3 * FREQ_SCALE) + FREQ_BIAS -- - 1.6
+-- 		print("perlin: ".. dump(f3))
 		
-		local p2 = {
-			x = ((t3 * (dx/10) + pos.x ) % 65536) - 32768,
-			y = 0,
-			z = ((t4 * (dx/10) + pos.z) % 65536) - 32768,
-		}
-		
-		local f1 = perlins.freq1:get2dMap_flat(p1)[1]
-		local f2 = perlins.freq2:get2dMap_flat(p1)[1]
-		
-		print("p2: "..p2.x..", ".. p2.z)
-		print("perlin: ".. dx.. ", "..dz.. ", "..f1.. ", "..f2)
-		
-		local f = (f1 + f2) - .5
-		
+		f3 = f3 + get_freq_bias(pos, f3, pinfo.player)
+	
 		local biome = get_biome(pos)
-		
-		print("storm intensity: ".. f .. " ("..f1..", "..f2..")")
-		if f > 0 then
+-- 		f3 = nil
+-- 		print("storm intensity: ".. f .. " ("..f1..", "..f2..")")
+		local intens = f3 + get_intens_bias(pos, f3, pinfo.player) 
+		if f3 > 0 then
 			
 			local dir = {x = dx, y = 0, z = dz}
-			
-			
 			
 			local fn = biome_spawners[biome]
 			
 			if not fn then
 				print("missing spawner biome: "..biome)
 			end
-			fn(pos, dir, 1, f)
+			fn(pos, dir, 1, intens)
 			
 		end
 		
 		
 		
 		
-		set_biome_storm_sky(pinfo, biome, biome, 1, clamp(0, 1, 1-f))
+		set_biome_storm_sky(pinfo, biome, biome, 1, clamp(0, 1, 1-intens))
 	end
 	
 	
@@ -589,6 +636,7 @@ minetest.after(2, function()
 		spread = {x=1000, y=1000, z=1000}
 	}, {x=1,y=1,z=1})
 	
+	--[[
 	perlins.freq1 = minetest.get_perlin_map({
 		flags = {eased = false}, 
 		lacunarity = 2,
@@ -610,6 +658,18 @@ minetest.after(2, function()
 		scale = 1, 
 		spread = {x=2000, y=2000, z=2000}
 	}, {x=1,y=1,z=1})
+	]]
+	
+	perlins.freq3 = minetest.get_perlin_map({
+		flags = {eased = false}, 
+		lacunarity = 4,
+		octaves = 6, 
+		offset = 0, 
+		persistence = 0.45, 
+		seed = 179334,
+		scale = 1, 
+		spread = {x=500, y=500, z=500}
+	}, {x=2,y=2,z=2})
 	
 	
 	storm_loop()
