@@ -499,8 +499,8 @@ minetest.register_craftitem("storms:rainstick", {
 
 
 storms.register_on_lightning_strike(function(pos) 
-	pos.y = pos.y + 1
-	minetest.set_node(pos, {name="fire:basic_flame"})
+-- 	pos.y = pos.y + 1
+-- 	minetest.set_node(pos, {name="fire:basic_flame"})
 	
 end)
 
@@ -663,7 +663,7 @@ minetest.after(2, function()
 	perlins.freq3 = minetest.get_perlin_map({
 		flags = {eased = false}, 
 		lacunarity = 4,
-		octaves = 6, 
+		octaves = 5, 
 		offset = 0, 
 		persistence = 0.45, 
 		seed = 179334,
