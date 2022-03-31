@@ -543,7 +543,10 @@ local function activate_storm(player )
 	if not fn then
 		print("missing spawner biome: "..biome)
 	end
-	fn(pos)
+	
+	if pos.y > -40 then
+		fn(pos)
+	end
 	
 end
 
@@ -588,7 +591,7 @@ local function storm_loop()
 -- 		f3 = nil
 -- 		print("storm intensity: ".. f .. " ("..f1..", "..f2..")")
 		local intens = f3 + get_intens_bias(pos, f3, pinfo.player) 
-		if f3 > 0 then
+		if f3 > 0.1 and pos.y > -40 then
 			
 			local dir = {x = dx, y = 0, z = dz}
 			
